@@ -35,9 +35,8 @@ class SimpleCalendarClass
     */
 	function __construct($array)
 	{
-         $this->date = time(); 
-         $this->data = '';
          $this->apiConfig = $array;
+         $this->validate_token();
 	}
     
     /* 
@@ -111,7 +110,7 @@ class SimpleCalendarClass
     }
     
     /*
-    *
+    *	Check the access_token is still valid, if not use the refresh_token to get a new one
     *   
     */
     public function validate_token()
@@ -127,7 +126,7 @@ class SimpleCalendarClass
     
     
     /* 
-    *   CURL request function, all requests to Google goes throughs mes
+    *   CURL request function
     *   @param (string) url - Obvious
     *   @param (string) method - POST, GET, PUT, DELETE, whatever...
     *   @param (string) data - We shall see...
@@ -135,7 +134,6 @@ class SimpleCalendarClass
     */
     public function make_request($url, $method, $type, $data)
     {
-    
         // Init and build/switch methods
         $ch = curl_init($url);
         if ($method == 'GET')
@@ -154,62 +152,37 @@ class SimpleCalendarClass
             );
             curl_setopt_array($ch, $options);
         } 
-        
-        if($method == 'POST' && $type == 'normal')
+           
+        // JSON Encode or not
+        if($type == 'json')
         {
-            $options = array(
-                CURLOPT_POST => 1,
-                CURLOPT_POSTFIELDS => $data,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_SSL_VERIFYPEER => true,
-                CURLOPT_SSL_VERIFYHOST => 2,
-             );
-            curl_setopt_array($ch, $options);
-        }
+			$post_fields = json_encode($data);
+			$header = array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com",  "Content-Type: application/json",   "Content-Length: " . strlen(json_encode($data)));
+		}else{
+			$post_fields = $data
+			$header =  array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com");
+		}
         
-        if($method == 'POST' && $type == 'json')
-        {
-            $options = array(
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_POSTFIELDS => json_encode($data), 
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_SSL_VERIFYPEER => 1,
-                CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_VERBOSE => 1,
-                CURLOPT_HTTPHEADER =>  array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com",  "Content-Type: application/json",   "Content-Length: " . strlen(json_encode($data))),
-             );
-            curl_setopt_array($ch, $options);
-        }
-        
-        if($method == 'DELETE' && $type == 'json')
-        {
-              $options = array(
-                CURLOPT_CUSTOMREQUEST => 'DELETE',
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_SSL_VERIFYPEER => 1,
-                CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_VERBOSE => 1,
-                CURLOPT_HTTPHEADER =>  array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com"),
-             );
-            curl_setopt_array($ch, $options);
-        }
-        
-        if($method == 'PUT' && $type == 'json')
-        {
-              $options = array(
-                CURLOPT_CUSTOMREQUEST => 'PUT',
-                CURLOPT_POSTFIELDS => json_encode($data), 
-                CURLINFO_HEADER_OUT => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_SSL_VERIFYPEER => 1,
-                CURLOPT_SSL_VERIFYHOST => 2,
-                CURLOPT_VERBOSE => 1,
-                CURLOPT_HTTPHEADER =>  array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com", "Content-Type: application/json",   "Content-Length: " . strlen(json_encode($data))),
-             );
-            curl_setopt_array($ch, $options);
-        }
-        
+        // Build basic options array
+        $options = array(
+			CURLINFO_HEADER_OUT => true,
+			CURLOPT_SSL_VERIFYHOST => 2,
+			CURLOPT_SSL_VERIFYPEER => 1,
+			CURLOPT_VERBOSE => 1,
+			CURLOPT_RETURNTRANSFER => true,
+			CURLOPT_POSTFIELDS => $post_fields,
+			CURLOPT_HTTPHEADER => $header,
+			CURLOPT_POSTFIELDS => $post_fields;
+		);
+		
+		// Push the data type if normal
+		if($method == 'POST' && type == 'normal')
+		{
+			array_push($options, array(CURLOPT_POST => 1));
+		}
+		
+		// Set CURL options
+		curl_setopt_array($ch, $options);              
 
         // Make CURL reponse
         $response = curl_exec($ch);     
@@ -227,18 +200,16 @@ class SimpleCalendarClass
         $response = json_decode($response);
         
         // Check for errors ** DEV MODE **
-        if($this->dev_mode == true)
+        if($this->debug_mode == true)
         {
-            if ($curl_info['curlErrorNum'] > 0) {
+            if ($curl_info['curlErrorNum'] > 0) 
+            {
                 throw new apiIOException("HTTP Error: ($respHttpCode) $curlError");
             }
-            
-            // Return CURL data ** DEV MODE **
             foreach($curl_info as $k => $v)
             {
                 $error[$k] = $v;
             }
-            
             $response->headers = $error;
         }
         // Returns data
