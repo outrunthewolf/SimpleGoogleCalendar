@@ -1,4 +1,3 @@
-simple-calendar-class
-=====================
+## About
+Simple Google Calendar offers a lightweight PHP class to interact with v3 of the Google Calendar API
 
-A simple PHP class for Google Calendar API v3, to replace their gigantic client library
