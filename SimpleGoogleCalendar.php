@@ -1,17 +1,9 @@
 <?php
 
-/*
-    Booking Class:
-    Used for Google calendar integration
-    
-*/
-    
-
-
-class SimpleCalendarClass
+class SimpleGoogleCalendar
 {
     // Debug variables
-   public $debug_mode = false; 
+    public $debug_mode = true; 
 
     // OAuth2 constants
     const OAUTH2_REVOKE_URI = 'https://accounts.google.com/o/oauth2/revoke';
@@ -25,7 +17,7 @@ class SimpleCalendarClass
    
 
     /* 
-    *   Construct function, sets up the apiConfig with the requeired variables
+    *   Construct function, sets up the api_config with the requeired variables
     *   @param (array) array
     *       client_id (string)  The client id from Google API Console
     *       redirect_uri (string)   The redirect uri from Google API Console
@@ -35,22 +27,23 @@ class SimpleCalendarClass
     */
 	function __construct($array)
 	{
-         $this->apiConfig = $array;
-         $this->validate_token();
+         $this->api_config = $array;
+         //$this->validate_token();
 	}
     
     /* 
     *   Returns the url to the authorisation link, once used and a refresh token is retained, you'll never need this again
     *   @return (string) Google OAutht2 link
     */
-    private function create_auth_url()
+    public function create_auth_url()
     {
-        $params = array(
-            'redirect_uri=' . urlencode($this->apiConfig['redirect_uri']),
-            'client_id=' . urlencode($this->apiConfig['client_id']),
-            'scope=' . urlencode($this->apiConfig['scope']),
-            'access_type=' . urlencode($this->apiConfig['access_type']),
-            'response_type=' .urlencode($this->apiConfig['response_type'])
+        $params = array
+        (
+            'redirect_uri=' . urlencode($this->api_config['redirect_uri']),
+            'client_id=' . urlencode($this->api_config['client_id']),
+            'scope=' . urlencode($this->api_config['scope']),
+            'access_type=' . urlencode($this->api_config['access_type']),
+            'response_type=' .urlencode($this->api_config['response_type'])
         );
         $params = implode('&', $params);
         return self::OAUTH2_AUTH_URL . "?$params";
@@ -63,18 +56,19 @@ class SimpleCalendarClass
     */
     public function refresh_token()
     {    
-        $info = array(
-              'refresh_token' => $this->apiConfig['refresh_token'],
+        $info = array
+        (
+              'refresh_token' => $this->api_config['refresh_token'],
               'grant_type' => 'refresh_token',
-              'client_id' => $this->apiConfig['client_id'],
-              'client_secret' => $this->apiConfig['client_secret']
+              'client_id' => $this->api_config['client_id'],
+              'client_secret' => $this->api_config['client_secret']
         );
         
         // Get returned CURL request
         $request = $this->make_request(self::OAUTH2_TOKEN_URI, 'POST', 'normal', $info);
         
-        // Push the new token into the apiConfig
-        $this->apiConfig['access_token'] = $request->access_token;
+        // Push the new token into the api_config
+        $this->api_config['access_token'] = $request->access_token;
         
         // Return the token
         return $request->access_token;
@@ -90,20 +84,24 @@ class SimpleCalendarClass
     {
         if(!$grant_type) $grant_type = 'authorization_code';
         
-        $info = array(
+        $info = array
+        (
               'code' => $data,
               'grant_type' => $grant_type,
-              'redirect_uri' => $this->apiConfig['redirect_uri'],
-              'client_id' => $this->apiConfig['client_id'],
-              'client_secret' => $this->apiConfig['client_secret']
+              'redirect_uri' => $this->api_config['redirect_uri'],
+              'client_id' => $this->api_config['client_id'],
+              'client_secret' => $this->api_config['client_secret']
         );
         
         // Get the returned CURL request
+        echo "making request";
         $request = $this->make_request(self::OAUTH2_TOKEN_URI, 'POST', 'normal', $info);
         
-        // Push the new data into the apiConfig
-        $this->apiConfig['code'] = $data;
-        $this->apiConfig['access_token'] = $request->access_token;
+        die();
+
+        // Push the new data into the api_config
+        $this->api_config['code'] = $data;
+        $this->api_config['access_token'] = $request->access_token;
         
         // Return all request data
         return $request;
@@ -134,58 +132,76 @@ class SimpleCalendarClass
     */
     public function make_request($url, $method, $type, $data)
     {
+        echo "1/5";
         // Init and build/switch methods
         $ch = curl_init($url);
-        if ($method == 'GET')
-        {
-            foreach($data as $k => $v)
-            {
-                $get = '';
-                $get = $get . '&' . $k . '=' . $v;
-            }
-            $url = $url . "?" . $get;
-            $options = array(
-                CURLOPT_URL => $url,
-                CURLOPT_RETURNTRANSFER => 1,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => 2
-            );
-            curl_setopt_array($ch, $options);
-        } 
-           
-        // JSON Encode or not
-        if($type == 'json')
-        {
-			$post_fields = json_encode($data);
-			$header = array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com",  "Content-Type: application/json",   "Content-Length: " . strlen(json_encode($data)));
-		}else{
-			$post_fields = $data
-			$header =  array( "Authorization: Bearer " .  $this->apiConfig['access_token'] , "Host: www.googleapis.com");
-		}
+
+        echo "url: " . $url;
         
         // Build basic options array
-        $options = array(
-			CURLINFO_HEADER_OUT => true,
-			CURLOPT_SSL_VERIFYHOST => 2,
-			CURLOPT_SSL_VERIFYPEER => 1,
-			CURLOPT_VERBOSE => 1,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_POSTFIELDS => $post_fields,
-			CURLOPT_HTTPHEADER => $header,
-			CURLOPT_POSTFIELDS => $post_fields;
-		);
-		
-		// Push the data type if normal
-		if($method == 'POST' && type == 'normal')
-		{
-			array_push($options, array(CURLOPT_POST => 1));
-		}
-		
+        $options = array
+        (
+            CURLINFO_HEADER_OUT => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_SSL_VERIFYPEER => 1,
+            CURLOPT_VERBOSE => 1,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_URL => $url
+        );
+        
+        // Sort Various Methods
+        /*
+        if($method == "GET")
+        {
+            $url .= "?" . http_build_query($data) . "\n";
+            array_push
+            (
+                $options, 
+                array
+                (
+                    CURLOPT_URL => $url,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => 2
+                )
+            );
+        }
+        */
+        if($type == "json")
+        {
+            $post_fields = json_encode($data);
+            $header = array( "Authorization: Bearer " .  $this->api_config['access_token'] , "Host: www.googleapis.com",  "Content-Type: application/json",   "Content-Length: " . strlen(json_encode($data)));
+            array_push
+            (
+                $options,
+                array
+                (
+                    CURLOPT_POSTFIELDS => $post_fields,
+                    CURLOPT_HTTPHEADER => $header
+                )
+            );
+        }
+        if($method == "POST" && $type == "normal")
+        {
+            echo "2/5";
+            array_push
+            (
+                $options, 
+                array
+                (
+                    CURLOPT_CUSTOMREQUEST => "POST",
+                    CURLOPT_POSTFIELDS => $data,
+                    CURLOPT_POST => 1
+                )
+            );
+        }
+
+        //print_r($options);
+
 		// Set CURL options
 		curl_setopt_array($ch, $options);              
 
         // Make CURL reponse
-        $response = curl_exec($ch);     
+        $response = json_decode(curl_exec($ch));  
         
         // CURL info gathering
         $curl_info['sent'] = curl_getinfo($ch, CURLINFO_HEADER_OUT);
@@ -197,7 +213,6 @@ class SimpleCalendarClass
         
         // Close CURL
         curl_close($ch);
-        $response = json_decode($response);
         
         // Check for errors ** DEV MODE **
         if($this->debug_mode == true)
@@ -212,7 +227,9 @@ class SimpleCalendarClass
             }
             $response->headers = $error;
         }
-        // Returns data
+
+        print_r($response);
+
         return $response;
     }
   
@@ -226,7 +243,7 @@ class SimpleCalendarClass
 	{
         $calendar_id = ($calendar_id == NULL ? 'primary' : $calendar_id);
         $url = self::CAL_BASE_URL . $calendar_id . '/events';
-        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->apiConfig['access_token']));
+        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->api_config['access_token']));
         return $events;
 	}
     
@@ -240,7 +257,7 @@ class SimpleCalendarClass
         if(!$event_id) return array('error' => 'No Event ID specified');
         $calendar_id = ($calendar_id == NULL ? 'primary' : $calendar_id);
         $url = self::CAL_BASE_URL . $calendarID . '/events/' . $event_id;
-        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->apiConfig['access_token'])); 
+        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->api_config['access_token'])); 
         return $events;	
 	}
 
@@ -250,7 +267,7 @@ class SimpleCalendarClass
 	public function get_calendars()
 	{
         $url = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
-        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->apiConfig['access_token'])); 
+        $events = $this->make_request($url, 'GET', 'normal', array('access_token' => $this->api_config['access_token'])); 
         return $events;	
 	}
 	
@@ -269,12 +286,13 @@ class SimpleCalendarClass
        $calendar_id = ($array['CalendarID'] == NULL ? 'primary' : $array['CalendarID'] );
        
        $data = array(
-            "access_token" => $this->apiConfig['access_token'],
+            "access_token" => $this->api_config['access_token'],
              "kind" => "calendar#event",
              "status" =>"tentative",
              "summary" => "Booked, ref: " . $array['BookingRef'],
              "description" => "Custom Booking from Go Explore",
-             "start" => array(
+             "start" => array
+             (
                 "dateTime" => date(DATE_ATOM, strtotime($array['StartDate'] . ' 12:01pm')),
                 "timeZone" => "GMT"
              ),
@@ -324,10 +342,12 @@ class SimpleCalendarClass
        $event_id = $array['event_id'];
        
        $data = array(
-             "start" => array(
+             "start" => array
+             (
                 "dateTime" => date(DATE_ATOM, strtotime($array['start'] . ' 12:01pm'))
              ),
-             "end" => array(
+             "end" => array
+             (
                 "dateTime" =>date(DATE_ATOM, strtotime($array['end'] . ' 12:00pm'))
              )
         );
